@@ -1,0 +1,22 @@
+services:
+  frontend:
+    build:
+      context: ./front_end
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: always
+
+  backend:
+    build: 
+      context: ./back_end
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    # set to dev mode
+    environment:
+      DJANGO_SETTINGS_MODULE: back_end.settings.dev
+    volumes:
+      - ./back_end:/workspace
