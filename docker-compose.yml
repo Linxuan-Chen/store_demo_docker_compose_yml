@@ -3,21 +3,79 @@ services:
     build:
       context: ./front_end
       dockerfile: Dockerfile
+    container_name: demo_store_frontend
     ports:
       - "80:80"
     depends_on:
       - backend
-    restart: always
     environment:
       NODE_ENV: production
+    networks:
+      - backend_network
 
   backend:
-    build: 
+    build:
       context: ./back_end
       dockerfile: Dockerfile
+    container_name: demo_store_backend
     ports:
       - "8000:8000"
     environment:
       DJANGO_SETTINGS_MODULE: back_end.settings.prod
     env_file:
-      - "../.env"
+      - "./back_end/.env"
+    depends_on:
+      - redis
+      - celery
+    command: gunicorn back_end.wsgi:application --bind 0.0.0.0:8000
+    networks:
+      - backend_network
+
+  redis:
+    image: redis:8.0-M02-alpine3.21
+    container_name: redis
+    ports:
+      - 6379:6379
+    networks:
+      - backend_network
+
+  celery:
+    build: ./back_end
+    depends_on:
+      - redis
+    command: python -m celery -A back_end.celery worker
+    volumes:
+      - ./back_end:/app
+    networks:
+      - backend_network
+
+  celery-beat:
+    build: ./back_end
+    command: python -m celery -A back_end.celery beat --loglevel=info
+    depends_on:
+      - redis
+    volumes:
+      - ./back_end:/app
+    networks:
+      - backend_network
+
+  flower:
+    build: ./back_end
+    command: python -m celery -A back_end.celery flower
+    depends_on:
+      - backend
+      - redis
+      - celery
+    environment:
+      - DEBUG=1
+    ports:
+      - 5555:5555
+    networks:
+      - backend_network
+
+volumes:
+  redisdata:
+
+networks:
+  backend_network:
+    driver: bridge
